@@ -1,0 +1,72 @@
+version: '2'
+services:
+#infrastructure containers
+    nginx-proxy:
+        container_name: "nginx-proxy"
+        image: jwilder/nginx-proxy
+        ports: 
+            - "80:80"
+            - "443:443"
+        volumes:
+            - /var/run/docker.sock:/tmp/docker.sock
+            - /var/docker/nginx-proxy/certs:/etc/nginx/certs:rw
+            - /var/docker/nginx-proxy/vhost.d:/etc/nginx/vhost.d
+            - /tmp/nginx/html:/usr/share/nginx/html
+        restart: always
+    nginx-proxy-letsencrypt:
+        container_name: "nginx-proxy-letsencrypt"
+        image: jrcs/letsencrypt-nginx-proxy-companion
+        volumes_from:
+            - nginx-proxy
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        environment:
+            - "DEFAULT_EMAIL=XXXXXXXXXXXX"
+        restart: always
+#Individual Host Containers
+    joe-chandler.com:
+        container_name: "joe-chandler.com"
+        image: wordpress-memcached:latest
+        depends_on:
+            - nginx-proxy
+        expose:
+            - "443"
+        volumes:
+            - /var/www/joe-chandler.com/html:/var/www/html
+        environment:
+            - WORDPRESS_DB_HOST=XXXXXXXXXXXXXXXXX
+            - WORDPRESS_DB_USER=XXXXXXXXXXXXX
+            - WORDPRESS_DB_PASSWORD=XXXXXXXXXX
+            - WORDPRESS_DB_NAME=XXXXXXXXX
+            - "VIRTUAL_HOST=joe-chandler.com"
+            - "LETSENCRYPT_HOST=joe-chandler.com"
+            - "LETSENCRYPT_EMAIL=XXXXXXXXXXXXXXX"
+        restart: always
+    amyyocks.com:
+        container_name: "amyyocks.com"
+        image: wordpress-memcached:latest
+        depends_on:
+            - nginx-proxy
+        expose:
+            - "443"
+        volumes:
+            - /var/www/amyyocks.com/html:/var/www/html
+        environment:
+            - WORDPRESS_DB_HOST=XXXXXXXXXXXXXXXXX
+            - WORDPRESS_DB_USER=XXXXXXXXXX
+            - WORDPRESS_DB_PASSWORD=XXXXXXXXXXX
+            - WORDPRESS_DB_NAME=XXXXXXXXXX
+            - "VIRTUAL_HOST=amyyocks.com"
+            - "LETSENCRYPT_HOST=amyyocks.com"
+            - "LETSENCRYPT_EMAIL=XXXXXXXXXX"
+        restart: always
+    wpcli: #docker-compose run --rm wpcli wp --path=/var/www/[$SITE]/html [$COMMAND]
+        container_name: "wpcli"
+        image: wordpress:cli
+        volumes:
+            - /var/www/:/var/www/
+        user: xfs
+networks:
+    default:
+        external:
+            name: proxynet
